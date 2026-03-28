@@ -98,7 +98,12 @@ def get_all_api_keys(target_agent=None):
         if target_agent:
             agent_list = [target_agent]
         else:
-            agent_list = os.listdir(agents_dir)
+            # Only scan all agents if ANTHROPIC_API_KEY is not set
+            # (need to find a key somewhere). If env key exists, don't scan.
+            if found:
+                agent_list = []  # already have a key from env, skip disk scan
+            else:
+                agent_list = ["main"]  # default to main agent only, not fleet
         
         for agent in agent_list:
             auth_path = os.path.join(agents_dir, agent, "agent", "auth-profiles.json")
