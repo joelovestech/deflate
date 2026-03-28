@@ -2,7 +2,7 @@
 
 **The first tool to solve image context bloat in AI agents.** Every other context compression tool skips images. Deflate doesn't.
 
-Images in your agent's session history consume 15,000–25,000+ tokens each — **every single turn**. Deflate replaces them with rich, two-layer descriptions that preserve both conversational context AND complete visual data. 98-99% token reduction. Zero information loss.
+Images in your agent's session history consume 15,000–25,000+ tokens each — **every single turn**. Deflate replaces them with rich, three-tier descriptions that preserve conversational context, complete data, AND visual design details. 96-99% token reduction. Zero information loss.
 
 > *"Stop nuking your context with /compact. Deflate your images first."*
 
@@ -27,7 +27,7 @@ Existing solutions:
 ```
 Raw Image (~18,000 tokens)
     ↓ Vision model analyzes with conversation context
-Two-Layer Description (~250 tokens)
+Three-Tier Description (~500 tokens)
     ↓ Replaces base64 in session JSONL
 98.6% savings, zero information loss
 ```
@@ -117,7 +117,7 @@ Tested on a production OpenClaw fleet (10 agents):
 ## Features
 
 ### Core
-- 🧠 **Two-Layer Extraction** — context + complete data in every description
+- 🧠 **Three-Tier Extraction** — context + data + visual design in every description
 - ♻️ **Dedup Detection** — identical images share one API call (saved 28% in our tests)
 - 🔄 **Auth Failover** — auto-rotates between API keys and OAuth tokens
 - 🔑 **Smart Model Selection** — auto-picks best model based on auth type
@@ -203,7 +203,7 @@ python3 deflate.py --session-file path/to/session.jsonl
 
 1. **Scan** — reads session JSONL, finds `{"type":"image","data":"<base64>"}` blocks
 2. **Context** — extracts preceding messages, same-message text, and next agent response
-3. **Describe** — sends image + context to vision API with two-layer extraction prompt
+3. **Describe** — sends image + context to vision API with three-tier extraction prompt
 4. **Dedup** — MD5 fingerprints identical images, reuses descriptions
 5. **Replace** — swaps base64 block with `[🖼️ Image deflated: CONTEXT: ... DATA: ...]`
 6. **Backup** — creates `.bak` before writing modified JSONL
