@@ -150,12 +150,15 @@ Tested on a production OpenClaw fleet (10 agents):
 
 ### As an OpenClaw Skill
 ```bash
-clawhub install deflate
+clawhub install shrink
 ```
 Then in chat:
 ```
-/deflate
+/shrink
 ```
+
+📦 **ClawHub:** [clawhub.ai/joelovestech/shrink](https://clawhub.ai/joelovestech/shrink)
+📂 **GitHub:** [github.com/joelovestech/shrink](https://github.com/joelovestech/shrink)
 
 ### CLI Usage
 ```bash
