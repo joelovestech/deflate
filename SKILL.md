@@ -32,7 +32,7 @@ metadata:
       - optionally restarts the OpenClaw gateway (user-initiated only)
 ---
 
-# Deflate — Multimodal Context Optimizer
+# 🦐 Shrink — Multimodal Context Optimizer
 
 Replace base64 image blocks in session JSONL with concise, context-aware text descriptions.
 Images consuming 15,000–25,000+ tokens become ~100 token descriptions — a 99%+ reduction.
