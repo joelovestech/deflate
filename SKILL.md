@@ -2,11 +2,34 @@
 name: deflate
 description: >-
   Replace base64 images in session history with context-aware text descriptions,
-  reducing image token cost by 99%+. Use when: (1) user says /deflate, deflate images,
-  compress images, reduce context, image bloat, shrink session, context too large,
-  (2) session is approaching context limits and contains images, (3) user wants to
-  optimize token usage across sessions. Supports single session, all sessions, per-agent
-  targeting, dedup detection, cost estimates, and automatic auth failover.
+  reducing image token cost by 96-99%. Use when: (1) user says /deflate, /shrink,
+  deflate images, compress images, reduce context, image bloat, shrink session,
+  context too large, (2) session is approaching context limits and contains images,
+  (3) user wants to optimize token usage across sessions. Supports single session,
+  all sessions, per-agent targeting, dedup detection, cost estimates, and automatic
+  auth failover.
+metadata:
+  openclaw:
+    requires:
+      env:
+        - ANTHROPIC_API_KEY
+    credentials:
+      - name: ANTHROPIC_API_KEY
+        description: >-
+          Anthropic API key for vision model calls. If not set, the script reads
+          keys from ~/.openclaw/agents/<agentId>/agent/auth-profiles.json (the
+          targeted agent only when --agent is specified, or all agents when
+          auto-discovering keys). Images and surrounding conversation context
+          (up to 10 preceding messages) are sent to the Anthropic vision API
+          for description generation.
+        required: false
+    permissions:
+      - reads session JSONL files (~/.openclaw/agents/<id>/sessions/*.jsonl)
+      - reads auth-profiles.json for Anthropic API keys
+      - writes modified JSONL files (replaces image blocks with text)
+      - creates .bak backup files before writing
+      - sends images + conversation context to Anthropic vision API (api.anthropic.com)
+      - optionally restarts the OpenClaw gateway (user-initiated only)
 ---
 
 # Deflate — Multimodal Context Optimizer

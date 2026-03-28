@@ -252,6 +252,26 @@ python3 deflate.py --session-file path/to/session.jsonl
 
 ---
 
+## Privacy & Security
+
+**What data leaves your machine:**
+- Images (base64) and surrounding conversation context (up to 10 messages) are sent to the **Anthropic vision API** (`api.anthropic.com`) for description generation. No other external services are contacted.
+
+**Credential access:**
+- Reads `ANTHROPIC_API_KEY` from environment if set
+- When `--agent <id>` is specified, reads credentials **only** from that agent's `auth-profiles.json`
+- Without `--agent`, may read credentials from multiple agents for failover
+- **Recommendation:** Set `ANTHROPIC_API_KEY` explicitly to control exactly which key is used
+
+**File access:**
+- Reads session JSONL files from `~/.openclaw/agents/`
+- Writes modified JSONL files (image blocks replaced with text descriptions)
+- Creates `.bak` backup before every write (disable with `--no-backup`)
+
+**No telemetry.** No data collection. No external calls beyond the Anthropic API.
+
+Use `--dry-run` to preview all changes before committing.
+
 ## License
 
 MIT

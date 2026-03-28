@@ -74,8 +74,12 @@ def resolve_model(model_arg, key_type, verbose=True):
         return model
 
 
-def get_all_api_keys():
-    """Collect all available Anthropic keys from env and auth-profiles.json.
+def get_all_api_keys(target_agent=None):
+    """Collect Anthropic keys from env and auth-profiles.json.
+    
+    Args:
+        target_agent: If specified, only read keys from this agent's auth-profiles.json.
+                      If None, reads from all agents (fleet mode).
     
     Returns list of (key, key_type) tuples, sorted: API keys first, then OAuth.
     Deduplicates by key value.
@@ -90,7 +94,13 @@ def get_all_api_keys():
     agents_dir = os.path.join(home, ".openclaw", "agents")
     
     if os.path.isdir(agents_dir):
-        for agent in os.listdir(agents_dir):
+        # If target_agent specified, only read that agent's credentials
+        if target_agent:
+            agent_list = [target_agent]
+        else:
+            agent_list = os.listdir(agents_dir)
+        
+        for agent in agent_list:
             auth_path = os.path.join(agents_dir, agent, "agent", "auth-profiles.json")
             if os.path.isfile(auth_path):
                 try:
@@ -374,12 +384,13 @@ def describe_image(api_keys, base64_data, mime_type, model, context="", detail="
 
 def process_session(session_file, dry_run=False, verbose=True, context_depth=5,
                     model=VISION_MODEL_DEFAULT, max_images=None, no_backup=False,
-                    min_tokens=500, json_output=False, dedup_cache=None, detail="standard"):
+                    min_tokens=500, json_output=False, dedup_cache=None, detail="standard",
+                    target_agent=None):
     """Process a session JSONL file, replacing image blocks with descriptions.
     
     Returns a result dict with stats for JSON output / aggregation.
     """
-    api_keys = get_all_api_keys()
+    api_keys = get_all_api_keys(target_agent=target_agent)
     if not api_keys:
         if not json_output:
             print("❌ No Anthropic API key found.", file=sys.stderr)
@@ -390,8 +401,19 @@ def process_session(session_file, dry_run=False, verbose=True, context_depth=5,
     primary_key_type = api_keys[0][1]
     model = resolve_model(model, primary_key_type, verbose=verbose and not json_output)
     
-    if verbose and not json_output and len(api_keys) > 1:
-        print(f"   🔄 {len(api_keys)} keys available (automatic failover enabled)")
+    if verbose and not json_output:
+        key_sources = []
+        for _, kt in api_keys:
+            if kt == "apikey":
+                key_sources.append("API key")
+            elif kt == "oauth":
+                key_sources.append("OAuth token")
+            else:
+                key_sources.append(kt)
+        source_desc = f"from {'agent ' + target_agent if target_agent else 'environment/fleet'}"
+        print(f"   🔑 Using {len(api_keys)} key(s) {source_desc}: {', '.join(key_sources)}")
+        if len(api_keys) > 1:
+            print(f"   🔄 Automatic failover enabled")
 
     if dedup_cache is None:
         dedup_cache = {}
@@ -797,6 +819,7 @@ def main():
             json_output=args.json_output,
             dedup_cache=dedup_cache,
             detail=args.detail,
+            target_agent=getattr(args, 'agent', None),
         )
         if result:
             all_results.append(result)
