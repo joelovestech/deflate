@@ -242,7 +242,7 @@ def extract_surrounding_context(lines, line_idx, content, content_idx, context_d
 _dead_keys = set()  # Cache of keys that have failed — skip on subsequent calls
 
 
-def describe_image(api_keys, base64_data, mime_type, model, context="", detail="standard", verbose=True):
+def describe_image(api_keys, base64_data, mime_type, model, context="", detail="standard", redact=None, verbose=True):
     """Call Anthropic vision API with automatic failover across available keys.
     
     api_keys: list of (key, key_type) tuples
@@ -279,6 +279,39 @@ def describe_image(api_keys, base64_data, mime_type, model, context="", detail="
                 "any notable design patterns or anomalies."
             )
 
+    # Build redaction instructions based on --redact level
+    redact_instruction = ""
+    if redact:
+        redact_types = {
+            "pii": (
+                "\n\n⚠️ REDACTION (PII): Replace ALL personally identifiable information with "
+                "redaction markers. This includes: full names → [REDACTED-NAME], dates of birth → "
+                "[REDACTED-DOB], Social Security numbers → [REDACTED-SSN], phone numbers → "
+                "[REDACTED-PHONE], email addresses → [REDACTED-EMAIL], physical/mailing addresses → "
+                "[REDACTED-ADDR], account numbers → [REDACTED-ACCT], driver's license numbers → "
+                "[REDACTED-DL], any other personal identifiers → [REDACTED-PII]. "
+                "Keep non-PII data (amounts, statuses, dates that aren't birthdays, technical values) readable."
+            ),
+            "keys": (
+                "\n\n⚠️ REDACTION (KEYS): Replace ALL secrets and credentials with redaction markers. "
+                "This includes: API keys → [REDACTED-KEY], passwords → [REDACTED-PASS], tokens/bearer "
+                "tokens → [REDACTED-TOKEN], connection strings → [REDACTED-CONN], private keys → "
+                "[REDACTED-PRIVKEY], webhook URLs with auth → [REDACTED-WEBHOOK], any string that "
+                "looks like a secret or credential → [REDACTED-SECRET]. "
+                "Keep non-secret technical values (ports, hostnames, status codes, config names) readable."
+            ),
+            "all": (
+                "\n\n⚠️ REDACTION (ALL): Replace ALL sensitive information with redaction markers. "
+                "This includes everything in PII and KEYS categories, plus: IP addresses → "
+                "[REDACTED-IP], URLs containing auth parameters → [REDACTED-URL], financial amounts → "
+                "[REDACTED-FINANCIAL], internal hostnames/domains → [REDACTED-HOST], file paths "
+                "containing usernames → [REDACTED-PATH], any data that could identify a person, "
+                "system, or account → [REDACTED]. "
+                "Keep only generic labels, statuses, UI element names, and structural descriptions readable."
+            ),
+        }
+        redact_instruction = redact_types.get(redact, redact_types["all"])
+
     format_spec = "CONTEXT: <conversational description>\nDATA: <key: value | key: value | ...>"
     if detail == "full":
         format_spec += "\nVISUAL: <visual design description>"
@@ -294,7 +327,8 @@ def describe_image(api_keys, base64_data, mime_type, model, context="", detail="
             "Format as key-value pairs separated by pipes. Include everything — even "
             "details not discussed in the conversation. Someone may need to reference "
             "specific values later."
-            f"{visual_section}\n\n"
+            f"{visual_section}"
+            f"{redact_instruction}\n\n"
             f"Format your response exactly as:\n{format_spec}"
         )
     else:
@@ -305,7 +339,8 @@ def describe_image(api_keys, base64_data, mime_type, model, context="", detail="
             "DATA: Extract ALL readable text, numbers, values, labels, statuses, dates, "
             "names, IDs, URLs, error messages, and data points visible in the image. "
             "Format as key-value pairs separated by pipes."
-            f"{visual_section}\n\n"
+            f"{visual_section}"
+            f"{redact_instruction}\n\n"
             f"Format your response exactly as:\n{format_spec}"
         )
 
@@ -390,7 +425,7 @@ def describe_image(api_keys, base64_data, mime_type, model, context="", detail="
 def process_session(session_file, dry_run=False, verbose=True, context_depth=5,
                     model=VISION_MODEL_DEFAULT, max_images=None, no_backup=False,
                     min_tokens=500, json_output=False, dedup_cache=None, detail="standard",
-                    target_agent=None):
+                    target_agent=None, redact=None):
     """Process a session JSONL file, replacing image blocks with descriptions.
     
     Returns a result dict with stats for JSON output / aggregation.
@@ -419,6 +454,9 @@ def process_session(session_file, dry_run=False, verbose=True, context_depth=5,
         print(f"   🔑 Using {len(api_keys)} key(s) {source_desc}: {', '.join(key_sources)}")
         if len(api_keys) > 1:
             print(f"   🔄 Automatic failover enabled")
+        if redact:
+            redact_labels = {"pii": "PII (names, DOBs, phones, emails, addresses)", "keys": "Secrets (API keys, passwords, tokens)", "all": "All sensitive data (PII + secrets + IPs + financials)"}
+            print(f"   🔒 Redaction: {redact_labels.get(redact, redact)}")
 
     if dedup_cache is None:
         dedup_cache = {}
@@ -552,7 +590,7 @@ def process_session(session_file, dry_run=False, verbose=True, context_depth=5,
             if not dry_run:
                 if log and verbose:
                     print(f"   🤖 Generating context-aware description via {model}...")
-                desc_result = describe_image(api_keys, base64_data, mime_type, model, context, detail, verbose and log)
+                desc_result = describe_image(api_keys, base64_data, mime_type, model, context, detail, redact, verbose and log)
                 description = desc_result[0] if desc_result else None
                 api_calls += 1
             else:
@@ -754,6 +792,10 @@ def main():
         help="Extraction detail: standard (context + data) or full (+ visual design) (default: full)"
     )
     parser.add_argument(
+        "--redact", choices=["pii", "keys", "all"], default=None,
+        help="Redact sensitive data during extraction: pii (names, DOBs, SSNs, phones, emails, addresses), keys (API keys, passwords, tokens, secrets), all (pii + keys + IPs, financial amounts, internal hosts)"
+    )
+    parser.add_argument(
         "--context-depth", type=int, default=10,
         help="Number of preceding messages for context (default: 10)"
     )
@@ -825,6 +867,7 @@ def main():
             dedup_cache=dedup_cache,
             detail=args.detail,
             target_agent=getattr(args, 'agent', None),
+            redact=args.redact,
         )
         if result:
             all_results.append(result)

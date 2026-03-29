@@ -136,6 +136,7 @@ Tested on a production OpenClaw fleet (10 agents):
 - 💰 **Cost estimates** — see API cost before running, with dedup savings
 - 🎛️ **`--context-depth N`** — tune how many preceding messages inform descriptions
 - 🎨 **`--detail`** — `full` (default: context + data + visual) or `standard` (context + data only)
+- 🔒 **`--redact`** — `pii` (names, DOBs, SSNs), `keys` (API keys, passwords), or `all` (everything sensitive)
 - 🤖 **`--model`** — override vision model (auto, sonnet, haiku)
 
 ### Interactive UX (Telegram/Discord)
@@ -196,6 +197,7 @@ python3 shrink.py --session-file path/to/session.jsonl
 | `--min-tokens N` | 500 | Skip images below token threshold |
 | `--context-depth N` | 5 | Preceding messages for context-aware descriptions |
 | `--detail` | full | `full` (context + data + visual) or `standard` (context + data) |
+| `--redact` | off | Redact sensitive data: `pii`, `keys`, or `all` |
 | `--no-backup` | off | Skip .bak backup creation |
 | `--json` | off | JSON output (suppresses pretty-print) |
 | `--no-verbose` | off | Suppress per-image details |
@@ -253,6 +255,38 @@ Based on production averages: ~17,000 tokens/image in, ~500 tokens/description o
 - [ ] Web dashboard for fleet-wide shrink stats
 
 ---
+
+## Redaction — Compliance-Ready Extraction
+
+Shrink can automatically strip sensitive data during extraction using `--redact`:
+
+```bash
+# Redact personal information (GDPR/HIPAA compliance)
+shrink.py --agent main --redact pii
+
+# Redact secrets and credentials (security hygiene)
+shrink.py --agent main --redact keys
+
+# Redact everything sensitive (maximum data minimization)
+shrink.py --agent main --redact all
+```
+
+| Level | What Gets Redacted | Use Case |
+|-------|-------------------|----------|
+| `pii` | Names, DOBs, SSNs, phone numbers, emails, physical addresses, account numbers, DL numbers | GDPR, HIPAA, client-facing agents |
+| `keys` | API keys, passwords, tokens, connection strings, private keys, webhook URLs with auth | Security hygiene, dev agents |
+| `all` | Everything above + IP addresses, financial amounts, internal hostnames, file paths with usernames | Regulated industries, maximum minimization |
+
+**Example output with `--redact pii`:**
+```
+CONTEXT: Property tax case dashboard showing document checklist status
+DATA: Client: [REDACTED-NAME] | DOB: [REDACTED-DOB] | Property: 14533 Wallace Ave |
+      Refund: $11,028 | PIN: 29-04-323-017 | Status: Under Review
+```
+
+The agent retains enough context to work but PII never persists in session history. Redaction happens at extraction time — zero extra API calls, zero extra cost.
+
+**Why this matters:** Three-tier extraction makes implicit data explicit. A screenshot buried in base64 is hard to grep for PII. A structured text description with names and account numbers is trivially searchable. `--redact` ensures that when you make data accessible, you also make it safe.
 
 ## Privacy & Security
 

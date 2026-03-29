@@ -30,6 +30,7 @@ metadata:
       - creates .bak backup files before writing
       - sends images + conversation context to Anthropic vision API (api.anthropic.com)
       - optionally restarts the OpenClaw gateway (user-initiated only)
+      - optionally redacts PII/secrets during extraction (--redact flag, data never written to disk)
 ---
 
 # 🦐 Shrink — Multimodal Context Optimizer
@@ -175,3 +176,4 @@ python3 scripts/shrink.py --agent main --all-sessions --json
 - **Context-aware** — reads preceding messages + user text + agent response for rich descriptions
 - **Auth failover** — tries API key first (Sonnet), falls back to OAuth (Haiku) automatically
 - **Safe** — creates .bak backup before writing, gracefully skips failed images
+- **Redaction** — `--redact pii|keys|all` strips sensitive data during extraction for compliance
